@@ -22,7 +22,7 @@ type DataItem struct {
 // db is our global database connection pool.
 var db *sql.DB
 
-const dbFileName = "./data.db" // Name of the SQLite database file
+const dbFileName = "./db/data.db" // Name of the SQLite database file
 
 func main() {
 	var err error
