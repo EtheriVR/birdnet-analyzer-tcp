@@ -1,0 +1,34 @@
+version: '3.9' # Specify compose file version
+
+services:
+  # Define the service for your Go API
+  bird-api:
+    pull_policy: build
+    # Tell Compose how to build the image for this service
+    build:
+      context: . # Use the current directory as the build context
+      dockerfile: Dockerfile # Specify the Dockerfile name
+    # Define the container name (optional, but helpful)
+    container_name: bird-api_server
+    # Map port 8080 on the host to port 8080 in the container
+    ports:
+      - "8080:8080"
+    # Define volumes for data persistence
+    volumes:
+      # Mount the named volume 'api_data' to the /app directory inside the container.
+      # The Go app writes './data.db' relative to its working dir, which is /app.
+      # This ensures the database file persists across container restarts.
+      - api_data:/app/db
+    # Restart policy (optional):
+    # 'unless-stopped' restarts the container unless manually stopped.
+    # 'always' restarts even if stopped manually.
+    #restart: unless-stopped
+    # Set environment variables if needed (none required for this simple example)
+    # environment:
+    #   - DB_HOST=database
+    #   - GIN_MODE=release # Example if using Gin framework
+
+# Define the named volume used above
+volumes:
+  api_data:
+    # driver: local # Default driver
