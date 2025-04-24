@@ -1,14 +1,18 @@
 from birdnetlib import RecordingBuffer
 from birdnetlib.analyzer import Analyzer
 import birdnetlib.wavutils as wavutils
-from datetime import datetime
+from datetime import date
 from pprint import pprint
 import argparse
 import socketserver
+import requests
+import json
+
 
 class MyTCPHandler(socketserver.StreamRequestHandler):
     def handle(self):
         analyzer = Analyzer()
+        api_url = "http://bird-api_server:8080/data"
         # Read WAV data from the socket
         for rate, data in wavutils.bufferwavs(self.rfile):
             # Make a RecordingBuffer with buffer and rate
@@ -18,11 +22,31 @@ class MyTCPHandler(socketserver.StreamRequestHandler):
                 rate,
                 lat=self.server.lat,
     		    lon=self.server.lon,
-                date=datetime.date.today(),
+                date=date.today(),
                 min_conf=0.25,
             )
             recording.analyze()
-            pprint(recording.detections)
+
+            for detection in recording.detections:
+                payload = {
+                    "name": detection['common_name'],
+                    "confidence": detection['confidence']
+                }
+                print("Detected: ")
+                print(detection['common_name'])
+                print(detection['confidence'])
+                try:
+                    response = requests.post(api_url, json=payload, timeout=1)
+                    try:
+                        response_data = response.json()
+                        print("Response Body (JSON):")
+                        print(json.dumps(response_data, indent=2))
+                    except json.JSONDecodeError:
+                        # If the response isn't valid JSON, print it as text
+                        print("Response Body (non-JSON):")
+                        print(response.text)
+                except Exception as e:
+                    print("Failed to post to database!")
 
 
 if __name__ == "__main__":

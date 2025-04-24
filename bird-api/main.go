@@ -14,10 +14,9 @@ import (
 // DataItem represents the structure of the data we expect in the POST request.
 // The `json:"..."` tags specify how JSON keys map to struct fields.
 type DataItem struct {
-	ID    int64  `json:"id,omitempty"` // Optional ID, usually set by DB
-	Name  string `json:"name"`
-	Value int    `json:"value"`
-	Notes string `json:"notes,omitempty"` // Optional field
+	ID    int64   `json:"id,omitempty"` // Optional ID, usually set by DB
+	Name  string  `json:"name"`
+	Confidence float32 `json:"confidence"`
 }
 
 // db is our global database connection pool.
@@ -84,8 +83,7 @@ func setupDatabase(dbName string) (*sql.DB, error) {
 		CREATE TABLE items (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			name TEXT NOT NULL,
-			value INTEGER,
-			notes TEXT,
+			confidence REAL,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		);`
 
@@ -135,9 +133,9 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 	// --- Insert Data into Database ---
 	log.Printf("Received data to insert: %+v", newItem)
 
-	insertSQL := `INSERT INTO items(name, value, notes) VALUES(?, ?, ?)`
+	insertSQL := `INSERT INTO items(name, confidence) VALUES(?, ?)`
 	// Use placeholders (?) to prevent SQL injection vulnerabilities
-	result, err := db.Exec(insertSQL, newItem.Name, newItem.Value, newItem.Notes)
+	result, err := db.Exec(insertSQL, newItem.Name, newItem.Confidence)
 	if err != nil {
 		// Log the detailed error server-side
 		log.Printf("Error inserting data into database: %v", err)

@@ -3,10 +3,11 @@ version: '3.9' # Specify compose file version
 services:
   # Define the service for your Go API
   bird-api:
+    hostname: bird-api_server
     pull_policy: build
     # Tell Compose how to build the image for this service
     build:
-      context: . # Use the current directory as the build context
+      context: . # Use the current directory as the build contextdoc
       dockerfile: Dockerfile # Specify the Dockerfile name
     # Define the container name (optional, but helpful)
     container_name: bird-api_server
@@ -22,7 +23,9 @@ services:
     # Restart policy (optional):
     # 'unless-stopped' restarts the container unless manually stopped.
     # 'always' restarts even if stopped manually.
-    #restart: unless-stopped
+    restart: unless-stopped
+    networks:
+      - birdnet
     # Set environment variables if needed (none required for this simple example)
     # environment:
     #   - DB_HOST=database
@@ -31,4 +34,7 @@ services:
 # Define the named volume used above
 volumes:
   api_data:
-    # driver: local # Default driver
+networks:
+  birdnet:
+    external:
+      name: birdnet
