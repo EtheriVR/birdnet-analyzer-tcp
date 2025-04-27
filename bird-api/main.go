@@ -7,17 +7,27 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
-    _ "modernc.org/sqlite"
+	_ "modernc.org/sqlite"
 )
-   
-// DataItem represents the structure of the data we expect in the POST request.
+
+// BirdItem represents the structure of the data we expect in the POST request.
 // The `json:"..."` tags specify how JSON keys map to struct fields.
-type DataItem struct {
+type BirdItem struct {
 	ID    int64   `json:"id,omitempty"` // Optional ID, usually set by DB
 	Name  string  `json:"name"`
 	Confidence float32 `json:"confidence"`
+	CreatedAt string `json:"created_at,omitempty"`
 }
+
+type QueryItem struct {
+	ID    int64   `json:"id,omitempty"`
+	Name  string  `json:"name,omitempty"`
+	From  int64  `json:"from,omitempty"`
+	To  int64  `json:"to,omitempty"`
+}
+
 
 // db is our global database connection pool.
 var db *sql.DB
@@ -45,7 +55,8 @@ func main() {
 
 	// --- HTTP Server Setup ---
 	// Register the handler function for the /data endpoint
-	http.HandleFunc("/data", dataHandler)
+	http.HandleFunc("/data", dataHandlerSet)
+	http.HandleFunc("/birds", dataHandlerBirds)
 
 	// Define the port the server will listen on
 	port := ":8080"
@@ -100,8 +111,82 @@ func setupDatabase(dbName string) (*sql.DB, error) {
 	return database, nil
 }
 
-// dataHandler handles incoming requests to the /data endpoint.
-func dataHandler(w http.ResponseWriter, r *http.Request) {
+
+func dataHandlerBirds(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		log.Printf("Received non-POST request: %s from %s", r.Method, r.RemoteAddr)
+		return
+	}
+
+	var queryItem QueryItem
+	decoder := json.NewDecoder(r.Body)
+	defer r.Body.Close()
+
+	err := decoder.Decode(&queryItem)
+	if err != nil {
+		http.Error(w, "Bad Request: Invalid JSON format", http.StatusBadRequest)
+		log.Printf("Failed to decode JSON from %s: %v", r.RemoteAddr, err)
+		return
+	}
+
+	// Convert the Unix timestamps to time.Time values.
+	fromTime := time.Unix(queryItem.From, 0)
+	toTime := time.Unix(queryItem.To, 0)
+	
+	// Construct the SQL query with the time range.  Note the use of
+	// prepared statements to prevent SQL injection.
+	query := `SELECT id, name, confidence, created_at FROM items 
+			  WHERE created_at >= ? AND created_at <= ?`
+	
+	// Prepare the SQL statement.  This is important for security and
+	// can also improve performance.
+	stmt, err := db.Prepare(query)
+	if err != nil {
+		errorResponse(w, http.StatusInternalServerError, fmt.Sprintf("Error preparing statement: %v", err))
+		return
+	}
+	defer stmt.Close() // Ensure the statement is closed after we're done with it.
+	
+	// Execute the query with the provided time range.
+	rows, err := stmt.Query(fromTime, toTime)
+	if err != nil {
+		errorResponse(w, http.StatusInternalServerError, fmt.Sprintf("Error querying database: %v", err))
+		return
+	}
+	defer rows.Close() // Ensure the rows are closed after we're done.
+	
+	// Create a slice to store the results.
+	items := []BirdItem{}
+	
+	// Iterate over the rows and scan the data into Item structs.
+	for rows.Next() {
+		var item BirdItem
+		if err := rows.Scan(&item.ID, &item.Name, &item.Confidence, &item.CreatedAt); err != nil {
+			errorResponse(w, http.StatusInternalServerError, fmt.Sprintf("Error scanning row: %v", err))
+			return
+		}
+		items = append(items, item)
+	}
+	
+	// Check for any errors that occurred during the iteration.
+	if err := rows.Err(); err != nil {
+		errorResponse(w, http.StatusInternalServerError, fmt.Sprintf("Error during row iteration: %v", err))
+		return
+	}
+	
+	// Set the content type to JSON and write the response.
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(items)
+}
+
+func errorResponse(w http.ResponseWriter, statusCode int, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	json.NewEncoder(w).Encode(map[string]string{"error": message})
+}
+
+func dataHandlerSet(w http.ResponseWriter, r *http.Request) {
 	// --- Check Request Method ---
 	// Only allow POST requests
 	if r.Method != http.MethodPost {
@@ -111,7 +196,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// --- Decode JSON Body ---
-	var newItem DataItem
+	var newItem BirdItem
 	decoder := json.NewDecoder(r.Body)
 	// Ensure the request body is closed when the function returns
 	defer r.Body.Close()
