@@ -1,0 +1,19 @@
+services:
+  bird-web:
+    hostname: bird-web_server
+    pull_policy: build
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bird-web_server
+
+    ports:
+      - "80:80"
+    
+    networks:
+      - birdnet
+      
+networks:
+  birdnet:
+    external: true
+    name: birdnet
