@@ -7,6 +7,9 @@ import argparse
 import socketserver
 import requests
 import json
+import time
+import os, os.path
+from scipy.io.wavfile import write
 
 
 class MyTCPHandler(socketserver.StreamRequestHandler):
@@ -26,6 +29,9 @@ class MyTCPHandler(socketserver.StreamRequestHandler):
                 min_conf=0.25,
             )
             recording.analyze()
+            
+            if recording.detections:
+                write("/recordings/"+recording.detections[-1]['common_name']+".wav", 48000, data)
 
             for detection in recording.detections:
                 payload = {

@@ -2,13 +2,29 @@ import streamlit as st
 import requests
 import pandas as pd
 from datetime import datetime, date, time
+import time as unixtime
+def get_recent_bird() -> str:
+    try:
+        payload = {
+            "from": int(unixtime.time()-3600),
+            "to": int(unixtime.time())
+        }
+        response = requests.post(API_URL, json=payload, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        return data[-1]['name']
+    except:
+        return "zzz"
+
+
 
 # --- Configuration ---
 API_URL = "http://0.0.0.0:8080/birds" # The endpoint to fetch data from
 
 # --- Streamlit App Layout ---
 st.set_page_config(layout="wide") # Use wide layout for better table display
-st.title("🐦 Bird Observation Data Fetcher")
+bird ="Test"
+st.title(f"You are listening to the: { get_recent_bird() }")
 
 # --- Date Input ---
 # Use columns for better layout
@@ -17,15 +33,16 @@ col1, col2 = st.columns(2)
 with col1:
     # Get start date input from the user, default to today
     from_date = st.date_input("From Date", value=date.today())
-
+    from_t = st.time_input("",time(0, 0))
 with col2:
     # Get end date input from the user, default to today
     to_date = st.date_input("To Date", value=date.today())
+    to_t = st.time_input("",key="timeto")
 
 # Combine date with time to create datetime objects (start of day for 'from', end of day for 'to')
 # API might expect full timestamps, adjust format if needed (e.g., including time)
-from_datetime = datetime.combine(from_date, time.min)
-to_datetime = datetime.combine(to_date, time.max)
+from_datetime = datetime.combine(from_date, from_t)
+to_datetime = datetime.combine(to_date, to_t)
 
 # --- Fetch Button and Data Display ---
 if st.button("Fetch Bird Data"):
@@ -94,3 +111,5 @@ if st.button("Fetch Bird Data"):
 
 # --- Footer ---
 st.markdown("---")
+
+

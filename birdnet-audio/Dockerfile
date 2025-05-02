@@ -1,4 +1,4 @@
-FROM debian
+FROM debian:bookworm-slim
 
 RUN apt-get update && apt-get install -y alsa-utils
 RUN apt-get update && apt-get install -y pulseaudio
